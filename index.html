@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>JPEG XL Example</title>
+</head>
+
+<body>
+  <button id="load" disabled>Initializing...</button>
+  <canvas id="image"></canvas>
+
+  <script src="./jpegxl.js"></script>
+  <script>
+    const btnLoad = document.getElementById("load");
+    btnLoad.onclick = function () {
+      const input = document.createElement("input");
+      input.type = 'file';
+      input.accept = ".jxl";
+      input.click();
+
+      input.onchange = function (event) {
+        btnLoad.innerText = "Decoding...";
+        btnLoad.disabled = true;
+
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async function (event) {
+          const data = event.target.result;
+          const p = api.create_buffer(data.byteLength);
+          const arr = new Uint8ClampedArray(data);
+          Module.HEAP8.set(arr, p);
+
+          api.decode(p, data.byteLength);
+          api.destroy_buffer(p);
+
+          const result_pointer = api.get_result_pointer();
+          const result_size = api.get_result_size();
+          const result = new Uint8ClampedArray(Module.HEAP8.buffer, result_pointer, result_size);
+
+          const result_xsize = api.get_result_xsize();
+          const result_ysize = api.get_result_ysize();
+
+          const img = new ImageData(result, result_xsize, result_ysize);
+
+          var canvas = document.getElementById('image'),
+            ctx = canvas.getContext('2d');
+
+          canvas.width = result_xsize;
+          canvas.height = result_ysize;
+
+          ctx.putImageData(img, 0, 0);
+
+          btnLoad.innerText = "Load JpegXL image"
+          btnLoad.disabled = false;
+        };
+        reader.readAsArrayBuffer(file);
+      };
+    };
+  </script>
+  <script>
+    const api = {
+      version: Module.cwrap('version', 'number', []),
+      create_buffer: Module.cwrap('create_buffer', 'number', ['number']),
+      destroy_buffer: Module.cwrap('destroy_buffer', '', ['number']),
+      decode: Module.cwrap('decode', '', ['number', 'number']),
+      get_result_pointer: Module.cwrap('get_result_pointer', 'number', []),
+      get_result_size: Module.cwrap('get_result_size', 'number', []),
+      get_result_xsize: Module.cwrap('get_result_xsize', 'number', []),
+      get_result_ysize: Module.cwrap('get_result_ysize', 'number', []),
+    };
+
+    Module.onRuntimeInitialized = async function () {
+      console.log("JXL Version: " + api.version());
+
+      const btnLoad = document.getElementById("load");
+      btnLoad.innerText = "Load JpegXL image"
+      btnLoad.disabled = false;
+    }
+  </script>
+
+</body>
+
+</html>
