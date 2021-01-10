@@ -4,24 +4,38 @@
 <head>
   <meta charset="UTF-8">
   <title>JPEG XL Example</title>
+  <style>
+    div {
+      margin: 10px;
+    }
+  </style>
 </head>
 
 <body>
-  <button id="load" disabled>Initializing...</button>
+  <div>
+    <p>The example is running in singlethread, expecting to be slow</p>
+    <input id="upload" type="file" hidden />
+    <button id="load" disabled>Initializing...</button>
+    <button id="load-image" disabled>Initializing...</button>
+  </div>
   <canvas id="image"></canvas>
 
   <script src="./jpegxl.js"></script>
   <script>
     const btnLoad = document.getElementById("load");
+    const canvas = document.getElementById('image'),
+      ctx = canvas.getContext('2d');
+    const btnLoadImage = document.getElementById("load-image");
+    const input = document.getElementById("upload");
+
     btnLoad.onclick = function () {
-      const input = document.createElement("input");
-      input.type = 'file';
       input.accept = ".jxl";
       input.click();
 
       input.onchange = function (event) {
         btnLoad.innerText = "Decoding...";
         btnLoad.disabled = true;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         const file = event.target.files[0];
         const reader = new FileReader();
@@ -43,9 +57,6 @@
 
           const img = new ImageData(result, result_xsize, result_ysize);
 
-          var canvas = document.getElementById('image'),
-            ctx = canvas.getContext('2d');
-
           canvas.width = result_xsize;
           canvas.height = result_ysize;
 
@@ -57,6 +68,53 @@
         reader.readAsArrayBuffer(file);
       };
     };
+
+    btnLoadImage.onclick = async function () {
+      input.accept = ".png,.jpg,.jpeg,.bmp,.avif,.webp";
+      input.click();
+
+      input.onchange = async function (event) {
+        btnLoadImage.innerText = "Encoding...";
+        btnLoadImage.disabled = true;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async function (event) {
+          const img = new Image();
+          img.src = event.target.result;
+
+          img.onload = async function () {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+
+            let data = ctx.getImageData(0, 0, img.width, img.height).data;
+
+            const p = api.create_buffer(data.byteLength);
+            const arr = new Uint8ClampedArray(data);
+            Module.HEAP8.set(arr, p);
+
+            api.encode(p, data.byteLength, img.width, img.height);
+            api.destroy_buffer(p);
+
+            const result_pointer = api.get_result_pointer();
+            const result_size = api.get_result_size();
+            const result = new Uint8ClampedArray(Module.HEAP8.buffer, result_pointer, result_size);
+
+            let blob = new Blob([result]);
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "result.jxl";
+            link.click();
+
+            btnLoadImage.innerText = "Load an image to encode"
+            btnLoadImage.disabled = false;
+          };
+        };
+        reader.readAsDataURL(file);
+      };
+    };
   </script>
   <script>
     const api = {
@@ -64,6 +122,7 @@
       create_buffer: Module.cwrap('create_buffer', 'number', ['number']),
       destroy_buffer: Module.cwrap('destroy_buffer', '', ['number']),
       decode: Module.cwrap('decode', '', ['number', 'number']),
+      encode: Module.cwrap('encode', '', ['number', 'number', 'number', 'number']),
       get_result_pointer: Module.cwrap('get_result_pointer', 'number', []),
       get_result_size: Module.cwrap('get_result_size', 'number', []),
       get_result_xsize: Module.cwrap('get_result_xsize', 'number', []),
@@ -74,8 +133,12 @@
       console.log("JXL Version: " + api.version());
 
       const btnLoad = document.getElementById("load");
-      btnLoad.innerText = "Load JpegXL image"
+      btnLoad.innerText = "Load JPEG XL file"
       btnLoad.disabled = false;
+
+      const btnLoadImage = document.getElementById("load-image");
+      btnLoadImage.innerText = "Load an image to encode"
+      btnLoadImage.disabled = false;
     }
   </script>
 
