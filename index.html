@@ -5,17 +5,50 @@
   <meta charset="UTF-8">
   <title>JPEG XL Example</title>
   <style>
-    div {
+    .outer {
       margin: 10px;
+    }
+
+    span {
+      padding-left: 30px;
+    }
+
+    div {
+      padding: 10px;
+    }
+
+    label {
+      display: inline-block;
+      width: 50px;
     }
   </style>
 </head>
 
 <body>
-  <div>
-    <p>The example is running in singlethread, expecting to be slow</p>
-    <input id="upload" type="file" hidden />
+  <p>The example is running in singlethread, expecting to be slow</p>
+  <input id="upload" type="file" hidden>
+  <div class="outer">
     <button id="load" disabled>Initializing...</button>
+  </div>
+  <div class="outer">
+    <div>
+      <input id="lossless" type="checkbox">
+      <label for="lossless">Lossless?</label>
+      <span>Set lossless mode. Quality setting is ignored if enabled.</span>
+    </div>
+
+    <div>
+      <input id="effort" type="range" min="3" max="9" value="7" step="1">
+      <label for="effort">Squirrel</label>
+      <span>Set effort/speed, larger is slower. Default: Squirrel(7)</span>
+    </div>
+
+    <div>
+      <input id="quality" type="range" min="0" max="15" value="1" step="0.1">
+      <label for="quality">1.0</label>
+      <span>Set quality, larger is lower. Recommend: 0.5 ~ 3.0. Default: 1.0 </span>
+    </div>
+
     <button id="load-image" disabled>Initializing...</button>
   </div>
   <canvas id="image"></canvas>
@@ -27,19 +60,40 @@
       ctx = canvas.getContext('2d');
     const btnLoadImage = document.getElementById("load-image");
     const input = document.getElementById("upload");
+    const lossless = document.getElementById("lossless");
+    const effort = document.getElementById("effort");
+    const quality = document.getElementById("quality");
 
-    btnLoad.onclick = function () {
+    const effortDict = {
+      3: "Falcon",
+      4: "Cheetah",
+      5: "Hare",
+      6: "Wombat",
+      7: "Squirrel",
+      8: "Kitten",
+      9: "Tortoise"
+    };
+
+    effort.oninput = async function () {
+      document.querySelector("label[for=effort]").innerText = effortDict[effort.value];
+    }
+
+    quality.oninput = async function () {
+      document.querySelector("label[for=quality]").innerText = quality.value;
+    }
+
+    btnLoad.onclick = async function () {
       input.accept = ".jxl";
       input.click();
 
       input.onchange = function (event) {
-        btnLoad.innerText = "Decoding...";
-        btnLoad.disabled = true;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         const file = event.target.files[0];
         const reader = new FileReader();
         reader.onload = async function (event) {
+          btnLoad.innerText = "Decoding...";
+          btnLoad.disabled = true;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
           const data = event.target.result;
           const p = api.create_buffer(data.byteLength);
           const arr = new Uint8ClampedArray(data);
@@ -64,6 +118,7 @@
 
           btnLoad.innerText = "Load JpegXL image"
           btnLoad.disabled = false;
+          input.value = '';
         };
         reader.readAsArrayBuffer(file);
       };
@@ -74,13 +129,13 @@
       input.click();
 
       input.onchange = async function (event) {
-        btnLoadImage.innerText = "Encoding...";
-        btnLoadImage.disabled = true;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         const file = event.target.files[0];
         const reader = new FileReader();
         reader.onload = async function (event) {
+          btnLoadImage.innerText = "Encoding...";
+          btnLoadImage.disabled = true;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
           const img = new Image();
           img.src = event.target.result;
 
@@ -95,7 +150,7 @@
             const arr = new Uint8ClampedArray(data);
             Module.HEAP8.set(arr, p);
 
-            api.encode(p, data.byteLength, img.width, img.height);
+            api.encode(p, data.byteLength, img.width, img.height, lossless.checked, effort.value, quality.value);
             api.destroy_buffer(p);
 
             const result_pointer = api.get_result_pointer();
@@ -110,6 +165,7 @@
 
             btnLoadImage.innerText = "Load an image to encode"
             btnLoadImage.disabled = false;
+            input.value = '';
           };
         };
         reader.readAsDataURL(file);
@@ -122,7 +178,7 @@
       create_buffer: Module.cwrap('create_buffer', 'number', ['number']),
       destroy_buffer: Module.cwrap('destroy_buffer', '', ['number']),
       decode: Module.cwrap('decode', '', ['number', 'number']),
-      encode: Module.cwrap('encode', '', ['number', 'number', 'number', 'number']),
+      encode: Module.cwrap('encode', '', ['number', 'number', 'number', 'number', 'number', 'number', 'number']),
       get_result_pointer: Module.cwrap('get_result_pointer', 'number', []),
       get_result_size: Module.cwrap('get_result_size', 'number', []),
       get_result_xsize: Module.cwrap('get_result_xsize', 'number', []),

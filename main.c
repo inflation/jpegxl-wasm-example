@@ -1,3 +1,4 @@
+#include "jxl/types.h"
 #ifdef __EMSCRIPTEN__
 #include "emscripten.h"
 #else
@@ -44,7 +45,7 @@ void decode(const uint8_t *buffer, size_t size) {
 
     void *runner = JxlThreadParallelRunnerCreate(
         NULL, JxlThreadParallelRunnerDefaultNumWorkerThreads());
-    if (JXL_ENC_SUCCESS !=
+    if (JXL_DEC_SUCCESS !=
         JxlDecoderSetParallelRunner(dec, JxlThreadParallelRunner, runner)) {
         fprintf(stderr, "JxlDecoderSetParallelRunner failed\n");
         JxlThreadParallelRunnerDestroy(runner);
@@ -129,34 +130,25 @@ void decode(const uint8_t *buffer, size_t size) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void encode(const uint8_t *buffer, size_t size, size_t xsize, size_t ysize) {
+void encode(const uint8_t *buffer, size_t size, size_t xsize, size_t ysize,
+            JXL_BOOL lossless, int effort, float quality) {
     JxlEncoder *enc = JxlEncoderCreate(NULL);
-
-    void *runner = JxlThreadParallelRunnerCreate(
-        NULL, JxlThreadParallelRunnerDefaultNumWorkerThreads());
-    if (JXL_ENC_SUCCESS !=
-        JxlEncoderSetParallelRunner(enc, JxlThreadParallelRunner, runner)) {
-        fprintf(stderr, "JxlEncoderSetParallelRunner failed\n");
-        JxlThreadParallelRunnerDestroy(runner);
-        JxlEncoderDestroy(enc);
-        return;
-    }
 
     JxlPixelFormat pixel_format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
     if (JXL_ENC_SUCCESS != JxlEncoderSetDimensions(enc, xsize, ysize)) {
         fprintf(stderr, "JxlEncoderSetDimensions failed\n");
-        JxlThreadParallelRunnerDestroy(runner);
         JxlEncoderDestroy(enc);
         return;
     }
 
     JxlEncoderOptions *options = JxlEncoderOptionsCreate(enc, NULL);
-    JxlEncoderOptionsSetEffort(options, 3);
+    JxlEncoderOptionsSetLossless(options, lossless);
+    JxlEncoderOptionsSetEffort(options, effort);
+    JxlEncoderOptionsSetDistance(options, quality);
 
     if (JXL_ENC_SUCCESS !=
         JxlEncoderAddImageFrame(options, &pixel_format, (void *)buffer, size)) {
         fprintf(stderr, "JxlEncoderAddImageFrame failed\n");
-        JxlThreadParallelRunnerDestroy(runner);
         JxlEncoderDestroy(enc);
         return;
     }
@@ -182,7 +174,6 @@ void encode(const uint8_t *buffer, size_t size, size_t xsize, size_t ysize) {
     compressed = realloc(compressed, out_size);
     if (JXL_ENC_SUCCESS != process_result) {
         fprintf(stderr, "JxlEncoderProcessOutput failed\n");
-        JxlThreadParallelRunnerDestroy(runner);
         JxlEncoderDestroy(enc);
         return;
     }
@@ -190,7 +181,7 @@ void encode(const uint8_t *buffer, size_t size, size_t xsize, size_t ysize) {
     JxlEncoderDestroy(enc);
 
     result[0] = (uintptr_t)compressed;
-    result[1] = size;
+    result[1] = out_size;
 }
 
 #ifndef __EMSCRIPTEN__
@@ -201,7 +192,7 @@ int main() {
     uint8_t *data = stbi_load("assets/sample.png", &x, &y, &n, 4);
     if (!data)
         exit(1);
-    encode(data, x * y * 4, x, y);
+    encode(data, x * y * 4, x, y, 1, 3, 1.0);
     FILE *out = fopen("result.jxl", "wb");
     fwrite((const void *)result[0], 1, result[1], out);
     stbi_image_free(data);
