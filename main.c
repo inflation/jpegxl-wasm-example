@@ -69,9 +69,11 @@ void decode(const uint8_t *buffer, size_t size) {
     JxlPixelFormat format = {4, JXL_TYPE_UINT8};
     size_t icc_size;
 
+  JxlDecoderSetInput(dec, next_in, avail_in);
+
     for (;;) {
         status =
-            JxlDecoderProcessInput(dec, (const uint8_t **)&next_in, &avail_in);
+            JxlDecoderProcessInput(dec);
         switch (status) {
         case JXL_DEC_ERROR:
             fprintf(stderr, "Decoder error\n");
