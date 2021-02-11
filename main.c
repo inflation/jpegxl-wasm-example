@@ -136,9 +136,16 @@ void encode(const uint8_t *buffer, size_t size, size_t xsize, size_t ysize,
             JXL_BOOL lossless, int effort, float quality) {
     JxlEncoder *enc = JxlEncoderCreate(NULL);
 
-    JxlPixelFormat pixel_format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
-    if (JXL_ENC_SUCCESS != JxlEncoderSetDimensions(enc, xsize, ysize)) {
-        fprintf(stderr, "JxlEncoderSetDimensions failed\n");
+    JxlBasicInfo basic_info = {};
+    basic_info.xsize = xsize;
+    basic_info.ysize = ysize;
+    basic_info.bits_per_sample = 8;
+    basic_info.exponent_bits_per_sample = 0;
+    basic_info.alpha_exponent_bits = 0;
+    basic_info.alpha_bits = 8;
+    basic_info.uses_original_profile = JXL_FALSE;
+    if (JXL_ENC_SUCCESS != JxlEncoderSetBasicInfo(enc, &basic_info)) {
+        fprintf(stderr, "JxlEncoderSetBasicInfo failed\n");
         JxlEncoderDestroy(enc);
         return;
     }
@@ -148,6 +155,7 @@ void encode(const uint8_t *buffer, size_t size, size_t xsize, size_t ysize,
     JxlEncoderOptionsSetEffort(options, effort);
     JxlEncoderOptionsSetDistance(options, quality);
 
+    JxlPixelFormat pixel_format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
     if (JXL_ENC_SUCCESS !=
         JxlEncoderAddImageFrame(options, &pixel_format, (void *)buffer, size)) {
         fprintf(stderr, "JxlEncoderAddImageFrame failed\n");
