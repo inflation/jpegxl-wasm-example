@@ -1,13 +1,12 @@
-#include "jxl/types.h"
 #ifdef __EMSCRIPTEN__
 #include "emscripten.h"
 #else
 #define EMSCRIPTEN_KEEPALIVE
 #endif
 
-#include <jxl/decode.h>
-#include <jxl/encode.h>
-#include <jxl/thread_parallel_runner.h>
+#include "jxl/decode.h"
+#include "jxl/encode.h"
+#include "jxl/thread_parallel_runner.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -69,11 +68,10 @@ void decode(const uint8_t *buffer, size_t size) {
     JxlPixelFormat format = {4, JXL_TYPE_UINT8};
     size_t icc_size;
 
-  JxlDecoderSetInput(dec, next_in, avail_in);
+    JxlDecoderSetInput(dec, next_in, avail_in);
 
     for (;;) {
-        status =
-            JxlDecoderProcessInput(dec);
+        status = JxlDecoderProcessInput(dec);
         switch (status) {
         case JXL_DEC_ERROR:
             fprintf(stderr, "Decoder error\n");
